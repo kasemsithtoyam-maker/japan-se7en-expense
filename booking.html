@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>เอกสารการจองทั้งหมด</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#081226;
+      color:#ffffff;
+      min-height:100vh;
+    }
+
+    .container{
+      padding:24px;
+      max-width:1200px;
+      margin:auto;
+    }
+
+    .header{
+      margin-bottom:24px;
+    }
+
+    .title{
+      font-size:42px;
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    .subtitle{
+      color:#b6c2d1;
+      font-size:18px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+      gap:18px;
+    }
+
+    .card{
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:24px;
+      padding:22px;
+      backdrop-filter:blur(10px);
+    }
+
+    .section-title{
+      font-size:24px;
+      font-weight:700;
+      margin-bottom:18px;
+    }
+
+    .button-group{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .doc-btn{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:18px 20px;
+      border-radius:18px;
+      text-decoration:none;
+      color:#ffffff;
+      font-size:20px;
+      font-weight:600;
+      transition:0.2s;
+      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+    }
+
+    .doc-btn:active{
+      transform:scale(0.98);
+    }
+
+    .hotel{
+      background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    }
+
+    .train{
+      background:linear-gradient(135deg,#16a34a,#15803d);
+    }
+
+    .bus{
+      background:linear-gradient(135deg,#ea580c,#c2410c);
+    }
+
+    .back{
+      background:linear-gradient(135deg,#475569,#334155);
+      margin-top:10px;
+    }
+
+    .emoji{
+      font-size:28px;
+    }
+
+    .info{
+      color:#cbd5e1;
+      line-height:1.8;
+      font-size:16px;
+    }
+
+    .file-list{
+      margin-top:18px;
+      padding-left:18px;
+      color:#ffffff;
+    }
+
+    .file-list li{
+      margin-bottom:10px;
+    }
+
+    @media(max-width:768px){
+
+      .title{
+        font-size:34px;
+      }
+
+      .doc-btn{
+        font-size:18px;
+        padding:16px;
+      }
+
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="header">
+      <div class="title">เอกสารการจองทั้งหมด</div>
+      <div class="subtitle">
+        Japan Se7en Travel Document Center
+      </div>
+    </div>
+
+    <div class="grid">
+
+      <!-- LEFT -->
+      <div class="card">
+
+        <div class="section-title">
+          เอกสารการเดินทาง
+        </div>
+
+        <div class="button-group">
+
+          <!-- HOTEL -->
+
+          <a class="doc-btn hotel"
+             href="docs/hotel-hakata.pdf"
+             target="_blank">
+
+            <div class="emoji">🏨</div>
+            <div>Hotel Hakata</div>
+
+          </a>
+
+          <a class="doc-btn hotel"
+             href="docs/hotel-matsumoto.pdf"
+             target="_blank">
+
+            <div class="emoji">🏨</div>
+            <div>Hotel Matsumoto</div>
+
+          </a>
+
+          <a class="doc-btn hotel"
+             href="docs/hotel-tokyo.pdf"
+             target="_blank">
+
+            <div class="emoji">🏨</div>
+            <div>Hotel Tokyo</div>
+
+          </a>
+
+          <!-- TRAIN -->
+
+          <a class="doc-btn train"
+             href="docs/yufuin-go.pdf"
+             target="_blank">
+
+            <div class="emoji">🚆</div>
+            <div>Yufuin ขาไป</div>
+
+          </a>
+
+          <a class="doc-btn train"
+             href="docs/yufuin-back.pdf"
+             target="_blank">
+
+            <div class="emoji">🚆</div>
+            <div>Yufuin ขากลับ</div>
+
+          </a>
+
+          <!-- BUS -->
+
+          <a class="doc-btn bus"
+             href="docs/kamikochi-bus-go.pdf"
+             target="_blank">
+
+            <div class="emoji">🚌</div>
+            <div>Kamikochi Bus ขาไป</div>
+
+          </a>
+
+          <a class="doc-btn bus"
+             href="docs/kamikochi-bus-back.pdf"
+             target="_blank">
+
+            <div class="emoji">🚌</div>
+            <div>Kamikochi Bus ขากลับ</div>
+
+          </a>
+
+          <!-- BACK -->
+
+          <a class="doc-btn back"
+             href="index.html">
+
+            <div class="emoji">⬅️</div>
+            <div>กลับหน้าแรก</div>
+
+          </a>
+
+        </div>
+
+      </div>
+
+      <!-- RIGHT -->
+
+      <div class="card">
+
+        <div class="section-title">
+          รายละเอียดระบบ
+        </div>
+
+        <div class="info">
+
+          • booking.html เป็นหน้ารวมเอกสารทั้งหมดของทริป<br><br>
+
+          • เอกสาร PDF จริงเก็บในโฟลเดอร์ <b>docs/</b><br><br>
+
+          • รองรับการเปิดบน iPad / iPhone / Notebook<br><br>
+
+          • ทุกปุ่มจะเปิด PDF แยกใน tab ใหม่ทันที
+
+        </div>
+
+        <ul class="file-list">
+
+          <li>docs/hotel-hakata.pdf</li>
+          <li>docs/hotel-matsumoto.pdf</li>
+          <li>docs/hotel-tokyo.pdf</li>
+          <li>docs/yufuin-go.pdf</li>
+          <li>docs/yufuin-back.pdf</li>
+          <li>docs/kamikochi-bus-go.pdf</li>
+          <li>docs/kamikochi-bus-back.pdf</li>
+
+        </ul>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

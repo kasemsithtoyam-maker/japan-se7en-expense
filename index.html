@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Japan Trip Expenses — Local Test</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <header>
+      <div>
+        <div class="brand">
+          Japan Trip Expenses — <span class="pill">taruntura</span>
+        </div>
+
+        <div class="badge">
+          Local Test Mode · No Firebase · Notebook Test
+        </div>
+
+        <div class="top-menu">
+          <a href="booking.html" class="doc-main-btn">
+            📄 เอกสารการจองทั้งหมด
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- STARTING BALANCES -->
+    <section id="balanceCard" class="card">
+      <div class="row">
+        <h3 style="margin:0">ยอดคงเหลือเริ่มต้น (วันออกเดินทาง)</h3>
+        <span id="syncBadge" class="pill right">Mode: local</span>
+      </div>
+
+      <div class="grid cols-4">
+        <div>
+          <label>YouTrip (THB/เทียบเท่า)</label>
+          <input type="number" id="balYouTrip" step="0.01" placeholder="0.00" class="num" />
+        </div>
+
+        <div>
+          <label>กรุงศรี JCB (THB)</label>
+          <input type="number" id="balKrungrsiJCB" step="0.01" placeholder="0.00" class="num" />
+        </div>
+
+        <div>
+          <label>UOB Visa (THB)</label>
+          <input type="number" id="balUOBVisa" step="0.01" placeholder="0.00" class="num" />
+        </div>
+      </div>
+
+      <div class="grid cols-2" style="margin-top:10px">
+        <div>
+          <label>วันที่ออกเดินทาง</label>
+          <input type="date" id="tripStartDate" />
+        </div>
+
+        <div class="row" style="align-items:flex-end">
+          <button id="btnSaveBalances" class="btn" style="width:auto">
+            บันทึกยอดตั้งต้น
+          </button>
+          <span id="balanceSaved" class="footer right">—</span>
+        </div>
+      </div>
+
+      <p class="footer">
+        * โหมดนี้ใช้ทดสอบบน Notebook ก่อน ยังไม่เชื่อม Firebase
+      </p>
+    </section>
+
+    <!-- ENTRY FORM -->
+    <section id="entryCard" class="card">
+      <h3 style="margin:0 0 8px">บันทึกค่าใช้จ่าย</h3>
+
+      <div class="grid cols-3">
+        <div>
+          <label>วันที่</label>
+          <input type="date" id="date" />
+        </div>
+
+        <div>
+          <label>หมวดหมู่</label>
+          <select id="category">
+            <option>อาหาร</option>
+            <option>เดินทาง</option>
+            <option>ของเล่น</option>
+            <option>เสื้อผ้า</option>
+            <option>น้ำหอม</option>
+            <option>iqos</option>
+            <option>ของฝาก</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+
+        <div>
+          <label>วิธีจ่าย</label>
+          <select id="method">
+            <option>Cash</option>
+            <option>YouTrip</option>
+            <option>Krungsri JCB</option>
+            <option>UOB Visa</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid cols-3">
+        <div>
+          <label>จำนวนเงิน</label>
+          <input type="number" id="amount" step="0.01" placeholder="0.00" class="num" />
+        </div>
+
+        <div>
+          <label>สกุลเงิน</label>
+          <select id="currency">
+            <option value="THB">THB</option>
+            <option value="JPY">JPY</option>
+          </select>
+        </div>
+
+        <div>
+          <label>เรทที่ใช้ (ใส่เองได้, ไม่ดึงอัตโนมัติ)</label>
+          <input type="number" id="rate" step="0.0001" placeholder="เช่น 0.27 (THB/JPY)" class="num" />
+        </div>
+      </div>
+
+      <div>
+        <label>รายละเอียด</label>
+        <input type="text" id="note" placeholder="เช่น Suica top-up / Ramen Ichiran" />
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button id="btnAdd" class="btn" style="width:auto">บันทึก</button>
+        <button id="btnExport" class="btn secondary" style="width:auto">Export JSON</button>
+        <button id="btnClearAll" class="btn danger" style="width:auto">ล้างข้อมูลทดสอบ</button>
+        <span id="lastSaved" class="footer right">—</span>
+      </div>
+    </section>
+
+    <!-- LIST -->
+    <section id="listCard" class="card">
+      <div class="row">
+        <h3 style="margin:0">รายการล่าสุด</h3>
+
+        <div class="row right" style="gap:6px">
+          <input id="search" placeholder="ค้นหา (คำ, หมวด, วิธีจ่าย, สกุล)" />
+          <select id="filterCurrency" style="width:auto">
+            <option value="">All</option>
+            <option>THB</option>
+            <option>JPY</option>
+          </select>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>วันที่</th>
+            <th>หมวด</th>
+            <th>รายละเอียด</th>
+            <th>สกุล</th>
+            <th>จำนวน</th>
+            <th>วิธีจ่าย</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+
+      <div class="row" style="margin-top:10px">
+        <div id="totals" class="muted">THB: 0.00 · JPY: 0</div>
+        <div class="right status muted" id="liveStatus">—</div>
+      </div>
+    </section>
+
+    <!-- DAILY RECONCILE -->
+    <section id="reconcileCard" class="card">
+      <h3 style="margin:0 0 10px">กระทบยอดสิ้นวัน</h3>
+
+      <div class="grid cols-3">
+        <div>
+          <label>เลือกวันที่</label>
+          <input type="date" id="reconcileDate" />
+        </div>
+
+        <div class="row" style="align-items:flex-end">
+          <button id="btnRecalc" class="btn secondary" style="width:auto">คำนวณ</button>
+        </div>
+      </div>
+
+      <div id="reconcileTable" style="margin-top:10px"></div>
+
+      <p class="footer">
+        * ใช้ยอดตั้งต้น − ยอดใช้จ่ายของวันนั้น จำแนกตามบัตร
+      </p>
+    </section>
+
+    <!-- CATEGORY NUMERIC SUMMARY -->
+    <section class="card">
+      <h3 style="margin:0 0 10px">สรุปยอดใช้จ่ายรายหมวด</h3>
+      <div id="categorySummary" class="footer" style="line-height:1.8"></div>
+    </section>
+
+  </div>
+
+  <script src="app-local.js"></script>
+</body>
+</html>
