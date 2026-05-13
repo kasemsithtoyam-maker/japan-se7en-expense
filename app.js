@@ -1,339 +1,342 @@
-// ===== 1) ใส่ค่า Firebase ของคุณที่นี่ =====
-    const firebaseConfig = {
-      apiKey: "__YOUR_API_KEY__",
-      authDomain: "__YOUR_PROJECT_ID__.firebaseapp.com",
-      projectId: "__YOUR_PROJECT_ID__",
-      storageBucket: "__YOUR_PROJECT_ID__.appspot.com",
-      messagingSenderId: "__YOUR_SENDER_ID__",
-      appId: "__YOUR_APP_ID__"
-    };
+const STORAGE_EXPENSES = "japan_se7en_expenses";
+const STORAGE_BALANCES = "japan_se7en_balances";
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, enableIndexedDbPersistence, doc, deleteDoc, updateDoc, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+const $ = (id) => document.getElementById(id);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+const balYouTrip = $("balYouTrip");
+const balKrungrsiJCB = $("balKrungrsiJCB");
+const balUOBVisa = $("balUOBVisa");
+const tripStartDate = $("tripStartDate");
+const btnSaveBalances = $("btnSaveBalances");
+const balanceSaved = $("balanceSaved");
+const syncBadge = $("syncBadge");
 
-    // Offline Persistence
-    enableIndexedDbPersistence(db).catch((err)=>{ console.warn('Persistence error:', err.code); });
+const dateEl = $("date");
+const categoryEl = $("category");
+const methodEl = $("method");
+const amountEl = $("amount");
+const currencyEl = $("currency");
+const rateEl = $("rate");
+const noteEl = $("note");
+const btnAdd = $("btnAdd");
+const btnExport = $("btnExport");
+const tbody = $("tbody");
+const totals = $("totals");
+const liveStatus = $("liveStatus");
+const searchEl = $("search");
+const filterCurrency = $("filterCurrency");
+const lastSaved = $("lastSaved");
 
-    // ===== DOM =====
-    const balanceCard = document.getElementById('balanceCard');
-    const entryCard = document.getElementById('entryCard');
-    const listCard = document.getElementById('listCard');
-    const reconcileCard = document.getElementById('reconcileCard');
+const reconcileDate = $("reconcileDate");
+const btnRecalc = $("btnRecalc");
+const reconcileTable = $("reconcileTable");
+const categorySummary = $("categorySummary");
 
-    const balYouTrip = document.getElementById('balYouTrip');
-    const balKrungrsiJCB = document.getElementById('balKrungrsiJCB');
-    const balUOBVisa = document.getElementById('balUOBVisa');
-    const tripStartDate = document.getElementById('tripStartDate');
-    const btnSaveBalances = document.getElementById('btnSaveBalances');
-    const balanceSaved = document.getElementById('balanceSaved');
-    const syncBadge = document.getElementById('syncBadge');
+let currentRows = [];
+let editingId = null;
 
-    const dateEl = document.getElementById('date');
-    const categoryEl = document.getElementById('category');
-    const methodEl = document.getElementById('method');
-    const amountEl = document.getElementById('amount');
-    const currencyEl = document.getElementById('currency');
-    const rateEl = document.getElementById('rate');
-    const noteEl = document.getElementById('note');
-    const btnAdd = document.getElementById('btnAdd');
-    const btnExport = document.getElementById('btnExport');
-    const tbody = document.getElementById('tbody');
-    const totals = document.getElementById('totals');
-    const liveStatus = document.getElementById('liveStatus');
-    const searchEl = document.getElementById('search');
-    const filterCurrency = document.getElementById('filterCurrency');
-    const lastSaved = document.getElementById('lastSaved');
+function todayISO() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
 
-    const reconcileDate = document.getElementById('reconcileDate');
-    const btnRecalc = document.getElementById('btnRecalc');
-    const reconcileTable = document.getElementById('reconcileTable');
+function setSyncBadge(text) {
+  if (syncBadge) syncBadge.textContent = `Mode: local`;
+}
 
-    // Default today
-    const today = new Date();
-    dateEl.valueAsDate = today;
-    reconcileDate.valueAsDate = today;
+function loadExpenses() {
+  currentRows = JSON.parse(localStorage.getItem(STORAGE_EXPENSES) || "[]");
+  currentRows.sort((a, b) => b.createdAt - a.createdAt);
+  render();
+}
 
-    let unsub = null; // snapshot unsubscribe
-    let selectedEmail = "wr.tarantura.4502@gmail.com"; // iPad main profile
-    let currentRows = [];
+function saveExpenses() {
+  localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(currentRows));
+}
 
-    // iPad-only mode: skip email selection screen
-    function showAppUI(){
-      balanceCard.style.display = 'block';
-      entryCard.style.display = 'block';
-      listCard.style.display = 'block';
-      reconcileCard.style.display = 'block';
-    }
+function loadBalances() {
+  const b = JSON.parse(localStorage.getItem(STORAGE_BALANCES) || "{}");
 
-    function refCol(){ return collection(db, `profiles/${selectedEmail}/expenses`); }
-    function refBalancesDoc(){ return doc(db, `profiles/${selectedEmail}/settings/balances`); }
+  if (balYouTrip) balYouTrip.value = b.youtrip ?? "";
+  if (balKrungrsiJCB) balKrungrsiJCB.value = b.krungsriJCB ?? "";
+  if (balUOBVisa) balUOBVisa.value = b.uobVisa ?? "";
+  if (tripStartDate) tripStartDate.value = b.startDate || todayISO();
+}
 
-    // iPad-only mode: auto start app
-    bindExpensesListener();
-    loadBalances();
-    showAppUI();
+function saveBalances() {
+  const b = {
+    youtrip: Number(balYouTrip?.value || 0),
+    krungsriJCB: Number(balKrungrsiJCB?.value || 0),
+    uobVisa: Number(balUOBVisa?.value || 0),
+    startDate: tripStartDate?.value || todayISO(),
+    updatedAt: Date.now()
+  };
 
-    function setSyncBadge(text){ syncBadge.textContent = `Sync: ${text}`; }
+  localStorage.setItem(STORAGE_BALANCES, JSON.stringify(b));
 
-    async function bindExpensesListener(){
-      if(!selectedEmail) return;
-      if(unsub) unsub();
-      const q = query(refCol(), orderBy('createdAt','desc')); // iPad fix: รองรับ 30+ รายการ/วัน และลดปัญหา composite index
-      setSyncBadge('connecting…');
-      unsub = onSnapshot(q, (snap)=>{
-        currentRows = [];
-        snap.forEach(doc=> currentRows.push({ id: doc.id, ...doc.data() }));
-        render(currentRows);
-        setSyncBadge('online');
-        liveStatus.textContent = `รายการทั้งหมด: ${currentRows.length}`;
-        computeReconcile();
-      },(err)=>{
-        console.error(err); setSyncBadge('error');
-      });
-    }
+  if (balanceSaved) {
+    balanceSaved.textContent = "บันทึกยอดตั้งต้นแล้ว: " + new Date().toLocaleString();
+  }
 
-    function render(rowsSource){
-      const term = (searchEl.value||'').toLowerCase();
-      const fc = filterCurrency.value;
-      const rows = rowsSource.filter(r=>{
-        const hit = `${r.category} ${r.note||''} ${r.method} ${r.currency}`.toLowerCase().includes(term);
-        const money = !fc || r.currency===fc;
-        return hit && money;
-      });
-      let thb=0, jpy=0;
-      tbody.innerHTML = rows.map(r=>{
-        if(r.currency==='THB') thb += Number(r.amount||0);
-        if(r.currency==='JPY') jpy += Number(r.amount||0);
-        const d = r.date ? new Date(r.date).toISOString().slice(0,10) : '';
-        return `<tr>
-          <td>${d}</td>
-          <td>${r.category||''}</td>
-          <td>${(r.note||'').replace(/</g,'&lt;')}</td>
-          <td>${r.currency}</td>
-          <td class="num">${Number(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
-          <td>${r.method||''}</td>
+  computeReconcile();
+}
+
+function escapeHtml(text) {
+  return String(text || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function render() {
+  const term = (searchEl?.value || "").toLowerCase();
+  const fc = filterCurrency?.value || "";
+
+  const rows = currentRows.filter((r) => {
+    const hit = `${r.date} ${r.category} ${r.note} ${r.method} ${r.currency}`
+      .toLowerCase()
+      .includes(term);
+
+    const money = !fc || r.currency === fc;
+    return hit && money;
+  });
+
+  let thb = 0;
+  let jpy = 0;
+
+  if (tbody) {
+    tbody.innerHTML = rows.map((r) => {
+      if (r.currency === "THB") thb += Number(r.amount || 0);
+      if (r.currency === "JPY") jpy += Number(r.amount || 0);
+
+      return `
+        <tr>
+          <td>${r.date || ""}</td>
+          <td>${escapeHtml(r.category)}</td>
+          <td>${escapeHtml(r.note)}</td>
+          <td>${escapeHtml(r.currency)}</td>
+          <td class="num">${Number(r.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+          <td>${escapeHtml(r.method)}</td>
           <td>
-            <button data-id="${r.id}" class="btn secondary" style="width:auto;padding:6px 10px;font-size:12px">แก้ไข</button>
-            <button data-del="${r.id}" class="btn danger" style="width:auto;padding:6px 10px;font-size:12px">ลบ</button>
+            <button class="btn secondary" style="width:auto;padding:6px 10px;font-size:12px" onclick="editExpense('${r.id}')">แก้ไข</button>
+            <button class="btn danger" style="width:auto;padding:6px 10px;font-size:12px" onclick="deleteExpense('${r.id}')">ลบ</button>
           </td>
-        </tr>`
-      }).join('');
-      totals.textContent = `THB: ${thb.toLocaleString(undefined,{maximumFractionDigits:2})} · JPY: ${jpy.toLocaleString()}`;
-
-      tbody.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.onclick = async ()=>{
-          if(confirm('ลบรายการนี้?')){
-            await deleteDoc(doc(db, `profiles/${selectedEmail}/expenses/${btn.dataset.del}`));
-          }
-        }
-      });
-      tbody.querySelectorAll('button[data-id]').forEach(btn=>{
-        btn.onclick = ()=> startEdit(btn.dataset.id, rowsSource);
-      });
-
-      searchEl.oninput = ()=> render(rowsSource);
-      filterCurrency.onchange = ()=> render(rowsSource);
-      updateCategorySummary(rowsSource);
-    }
-
-    async function startEdit(id, rowsSource){
-      const item = rowsSource.find(x=>x.id===id);
-      if(!item) return;
-      dateEl.value = item.date ? new Date(item.date).toISOString().slice(0,10) : '';
-      categoryEl.value = item.category||'อื่นๆ';
-      methodEl.value = item.method||'Other';
-      amountEl.value = item.amount||'';
-      currencyEl.value = item.currency||'THB';
-      rateEl.value = item.rate||'';
-      noteEl.value = item.note||'';
-      btnAdd.textContent = 'อัปเดต';
-      btnAdd.dataset.editing = id;
-      window.scrollTo({top:0,behavior:'smooth'});
-    }
-
-    btnAdd.onclick = async ()=>{
-      if(!selectedEmail){ alert('ยังไม่ได้เลือกอีเมล'); return; }
-      const payload = {
-        date: dateEl.value ? new Date(dateEl.value).getTime() : null,
-        category: categoryEl.value,
-        method: methodEl.value,
-        amount: Number(amountEl.value||0),
-        currency: currencyEl.value,
-        rate: rateEl.value ? Number(rateEl.value) : null,
-        note: noteEl.value.trim(),
-        updatedAt: serverTimestamp(),
-      };
-      try{
-        setSyncBadge('saving…');
-        if(btnAdd.dataset.editing){
-          await updateDoc(doc(db, `profiles/${selectedEmail}/expenses/${btnAdd.dataset.editing}`), payload);
-          btnAdd.textContent = 'บันทึก';
-          delete btnAdd.dataset.editing;
-        } else {
-          await addDoc(refCol(), { ...payload, createdAt: serverTimestamp() });
-        }
-        lastSaved.textContent = 'บันทึกล่าสุด: ' + new Date().toLocaleString();
-        
-        // ล้างค่า form หลังบันทึก
-        amountEl.value = '';
-        noteEl.value = '';
-        rateEl.value = '';
-
-        categoryEl.selectedIndex = 0;
-        methodEl.selectedIndex = 0;
-        currencyEl.selectedIndex = 0;
-
-        dateEl.valueAsDate = new Date();
-
-        setSyncBadge('online');
-      }catch(e){
-        console.error(e); setSyncBadge('error'); alert('บันทึกไม่สำเร็จ: '+e.message);
-      }
-    };
-
-    btnExport.onclick = async ()=>{
-      if(!selectedEmail) return;
-      const snap = await getDocs(refCol());
-      const data = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      const blob = new Blob([JSON.stringify({email: selectedEmail, exportedAt: Date.now(), data}, null, 2)], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `expenses_${selectedEmail}_${new Date().toISOString().slice(0,10)}.json`;
-      a.click(); URL.revokeObjectURL(url);
-    };
-
-    async function loadBalances(){
-      if(!selectedEmail) return;
-      try{
-        const docSnap = await getDoc(refBalancesDoc());
-        if(docSnap.exists()){
-          const d = docSnap.data();
-          balYouTrip.value = d.youtrip ?? "";
-          balKrungrsiJCB.value = d.krungsriJCB ?? "";
-          balUOBVisa.value = d.uobVisa ?? "";
-          if(d.startDate) tripStartDate.valueAsDate = new Date(d.startDate);
-        } else {
-          balYouTrip.value = "";
-          balKrungrsiJCB.value = "";
-          balUOBVisa.value = "";
-          tripStartDate.valueAsDate = today;
-        }
-      } catch(e){
-        console.error(e);
-      }
-    }
-
-    btnSaveBalances.onclick = async ()=>{
-      if(!selectedEmail) return;
-      try{
-        setSyncBadge('saving…');
-        await setDoc(refBalancesDoc(), {
-          youtrip: balYouTrip.value ? Number(balYouTrip.value) : null,
-          krungsriJCB: balKrungrsiJCB.value ? Number(balKrungrsiJCB.value) : null,
-          uobVisa: balUOBVisa.value ? Number(balUOBVisa.value) : null,
-          startDate: tripStartDate.value ? new Date(tripStartDate.value).getTime() : null,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        balanceSaved.textContent = 'บันทึกยอดตั้งต้นแล้ว: ' + new Date().toLocaleString();
-        setSyncBadge('online');
-        computeReconcile();
-      } catch(e){
-        console.error(e); setSyncBadge('error'); alert('ไม่สามารถบันทึกยอดตั้งต้น: ' + e.message);
-      }
-    };
-
-    btnRecalc.onclick = computeReconcile;
-
-    function sumByMethod(rows, methodName, dayStart, dayEnd){
-      return rows.reduce((acc, r)=>{
-        if(r.method===methodName && typeof r.date==='number' && r.date>=dayStart && r.date<dayEnd){
-          acc += Number(r.amount||0);
-        }
-        return acc;
-      }, 0);
-    }
-
-    async function computeReconcile(){
-      if(!selectedEmail){ reconcileTable.innerHTML = ''; return; }
-      let youtrip=0, kr=0, uob=0;
-      try{
-        const snap = await getDoc(refBalancesDoc());
-        if(snap.exists()){
-          const d = snap.data();
-          youtrip = Number(d.youtrip||0);
-          kr = Number(d.krungsriJCB||0);
-          uob = Number(d.uobVisa||0);
-        }
-      }catch(e){ console.error(e); }
-
-      const d = reconcileDate.value ? new Date(reconcileDate.value) : today;
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      const dayEnd = dayStart + 24*60*60*1000;
-
-      const sYou = sumByMethod(currentRows, 'YouTrip', dayStart, dayEnd);
-      const sKr = sumByMethod(currentRows, 'Krungsri JCB', dayStart, dayEnd);
-      const sUob = sumByMethod(currentRows, 'UOB Visa', dayStart, dayEnd);
-
-      const rows = [
-        ['YouTrip', youtrip, sYou, youtrip - sYou],
-        ['Krungsri JCB', kr, sKr, kr - sKr],
-        ['UOB Visa', uob, sUob, uob - sUob],
-      ];
-
-      const html = `
-        <table>
-          <thead>
-            <tr><th>บัตร</th><th>ยอดตั้งต้น (THB)</th><th>ใช้ไปวันนี้ (THB)</th><th>ควรคงเหลือ (THB)</th></tr>
-          </thead>
-          <tbody>
-            ${rows.map(r=>`<tr>
-              <td>${r[0]}</td>
-              <td class="num">${r[1].toLocaleString(undefined,{maximumFractionDigits:2})}</td>
-              <td class="num">${r[2].toLocaleString(undefined,{maximumFractionDigits:2})}</td>
-              <td class="num">${r[3].toLocaleString(undefined,{maximumFractionDigits:2})}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
+        </tr>
       `;
-      reconcileTable.innerHTML = html;
-      updateCategorySummary(currentRows || []);
+    }).join("");
+  }
+
+  if (totals) {
+    totals.textContent =
+      `THB: ${thb.toLocaleString(undefined, { maximumFractionDigits: 2 })} · JPY: ${jpy.toLocaleString()}`;
+  }
+
+  if (liveStatus) {
+    liveStatus.textContent = `รายการทั้งหมด: ${currentRows.length}`;
+  }
+
+  updateCategorySummary();
+  computeReconcile();
+}
+
+function addExpense() {
+  const amount = Number(amountEl?.value || 0);
+
+  if (!amount || amount <= 0) {
+    alert("กรุณาใส่จำนวนเงิน");
+    return;
+  }
+
+  const payload = {
+    id: editingId || String(Date.now()),
+    date: dateEl?.value || todayISO(),
+    category: categoryEl?.value || "อื่นๆ",
+    method: methodEl?.value || "Cash",
+    amount: amount,
+    currency: currencyEl?.value || "THB",
+    rate: rateEl?.value ? Number(rateEl.value) : null,
+    note: noteEl?.value.trim() || "",
+    createdAt: editingId
+      ? (currentRows.find((x) => x.id === editingId)?.createdAt || Date.now())
+      : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  if (editingId) {
+    currentRows = currentRows.map((x) => x.id === editingId ? payload : x);
+    editingId = null;
+    btnAdd.textContent = "บันทึก";
+  } else {
+    currentRows.unshift(payload);
+  }
+
+  saveExpenses();
+  render();
+
+  if (amountEl) amountEl.value = "";
+  if (noteEl) noteEl.value = "";
+  if (rateEl) rateEl.value = "";
+  if (dateEl) dateEl.value = todayISO();
+
+  if (lastSaved) {
+    lastSaved.textContent = "บันทึกล่าสุด: " + new Date().toLocaleString();
+  }
+}
+
+window.editExpense = function(id) {
+  const item = currentRows.find((x) => x.id === id);
+  if (!item) return;
+
+  editingId = id;
+
+  if (dateEl) dateEl.value = item.date || todayISO();
+  if (categoryEl) categoryEl.value = item.category || "อื่นๆ";
+  if (methodEl) methodEl.value = item.method || "Cash";
+  if (amountEl) amountEl.value = item.amount || "";
+  if (currencyEl) currencyEl.value = item.currency || "THB";
+  if (rateEl) rateEl.value = item.rate || "";
+  if (noteEl) noteEl.value = item.note || "";
+
+  if (btnAdd) btnAdd.textContent = "อัปเดต";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+window.deleteExpense = function(id) {
+  if (!confirm("ลบรายการนี้?")) return;
+  currentRows = currentRows.filter((x) => x.id !== id);
+  saveExpenses();
+  render();
+};
+
+function exportJSON() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    mode: "localStorage",
+    expenses: currentRows,
+    balances: JSON.parse(localStorage.getItem(STORAGE_BALANCES) || "{}")
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `japan-se7en-expenses-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function computeReconcile() {
+  if (!reconcileTable) return;
+
+  const b = JSON.parse(localStorage.getItem(STORAGE_BALANCES) || "{}");
+  const selectedDate = reconcileDate?.value || todayISO();
+
+  function sumMethod(methodName) {
+    return currentRows
+      .filter((r) => r.date === selectedDate && r.method === methodName)
+      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  }
+
+  const rows = [
+    ["YouTrip", Number(b.youtrip || 0), sumMethod("YouTrip")],
+    ["Krungsri JCB", Number(b.krungsriJCB || 0), sumMethod("Krungsri JCB")],
+    ["UOB Visa", Number(b.uobVisa || 0), sumMethod("UOB Visa")]
+  ];
+
+  reconcileTable.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>บัตร</th>
+          <th>ยอดตั้งต้น</th>
+          <th>ใช้ไปวันนี้</th>
+          <th>ควรคงเหลือ</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r) => `
+          <tr>
+            <td>${r[0]}</td>
+            <td class="num">${r[1].toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td class="num">${r[2].toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td class="num">${(r[1] - r[2]).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function updateCategorySummary() {
+  if (!categorySummary) return;
+
+  const budgets = {
+    "อาหาร": 10000,
+    "เดินทาง": 10000,
+    "ของเล่น": 20000,
+    "เสื้อผ้า": 10000,
+    "น้ำหอม": 10000,
+    "iqos": 10000,
+    "ของฝาก": 10000,
+    "อื่นๆ": 10000
+  };
+
+  const spent = {};
+  Object.keys(budgets).forEach((k) => spent[k] = 0);
+
+  currentRows.forEach((r) => {
+    if (r.currency === "THB" && spent[r.category] !== undefined) {
+      spent[r.category] += Number(r.amount || 0);
     }
+  });
 
-    function updateCategorySummary(rows){
-      const budgets = {
-        "อาหาร":10000,"เดินทาง":10000,"ของเล่น":20000,
-        "เสื้อผ้า":10000,"น้ำหอม":10000,"iqos":10000,
-        "ของฝาก":10000,"อื่นๆ":10000
-      };
-      const spent={};
-      Object.keys(budgets).forEach(k=>spent[k]=0);
+  categorySummary.innerHTML = Object.keys(budgets).map((k) => {
+    const used = spent[k] || 0;
+    const budget = budgets[k];
+    const pct = Math.min(100, (used / budget) * 100);
 
-      rows.forEach(r=>{
-        if(r.currency==="THB" && spent[r.category]!==undefined){
-          spent[r.category]+=Number(r.amount||0);
-        }
-      });
+    return `
+      <div class="cat-row">
+        <span class="cat-label">${k}</span>
+        <div class="cat-bar">
+          <div class="cat-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="cat-value">${used.toFixed(0)} / ${budget.toFixed(0)}</span>
+      </div>
+    `;
+  }).join("");
+}
 
-      let html = "";
-      Object.keys(budgets).forEach(k=>{
-        const used = spent[k] || 0;
-        const budget = budgets[k];
-        const pct = budget > 0 ? Math.min(100, (used / budget) * 100) : 0;
-        const pctText = budget > 0 ? (used / budget * 100).toFixed(1) : "0.0";
-        html += `
-          <div class="cat-row">
-            <span class="cat-label">${k}</span>
-            <div class="cat-bar">
-              <div class="cat-bar-fill" style="width:${pct}%"></div>
-            </div>
-            <span class="cat-value">${used.toFixed(0)} / ${budget.toFixed(0)} (${pctText}%)</span>
-          </div>
-        `;
-      });
+function clearTestData() {
+  if (!confirm("ต้องการล้างข้อมูลทั้งหมดในเครื่องนี้?")) return;
+  localStorage.removeItem(STORAGE_EXPENSES);
+  currentRows = [];
+  render();
+}
 
-      const box=document.getElementById("categorySummary");
-      if(box) box.innerHTML = html;
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  setSyncBadge("local");
+
+  if (dateEl) dateEl.value = todayISO();
+  if (reconcileDate) reconcileDate.value = todayISO();
+
+  loadBalances();
+  loadExpenses();
+
+  if (btnAdd) btnAdd.onclick = addExpense;
+  if (btnExport) btnExport.onclick = exportJSON;
+  if (btnSaveBalances) btnSaveBalances.onclick = saveBalances;
+  if (btnRecalc) btnRecalc.onclick = computeReconcile;
+
+  if (searchEl) searchEl.oninput = render;
+  if (filterCurrency) filterCurrency.onchange = render;
+
+  const clearBtn = document.querySelector(".btn.danger");
+  if (clearBtn && clearBtn.textContent.includes("ล้างข้อมูล")) {
+    clearBtn.onclick = clearTestData;
+  }
+});
