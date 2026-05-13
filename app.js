@@ -176,7 +176,18 @@
           await addDoc(refCol(), { ...payload, createdAt: serverTimestamp() });
         }
         lastSaved.textContent = 'บันทึกล่าสุด: ' + new Date().toLocaleString();
-        amountEl.value = noteEl.value = rateEl.value = '';
+        
+        // ล้างค่า form หลังบันทึก
+        amountEl.value = '';
+        noteEl.value = '';
+        rateEl.value = '';
+
+        categoryEl.selectedIndex = 0;
+        methodEl.selectedIndex = 0;
+        currencyEl.selectedIndex = 0;
+
+        dateEl.valueAsDate = new Date();
+
         setSyncBadge('online');
       }catch(e){
         console.error(e); setSyncBadge('error'); alert('บันทึกไม่สำเร็จ: '+e.message);
