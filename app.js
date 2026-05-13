@@ -1,6 +1,8 @@
 const STORAGE_EXPENSES = "japan_se7en_expenses";
 const STORAGE_BALANCES = "japan_se7en_balances";
 
+const DEFAULT_JPY_RATE = 0.25;
+
 const $ = (id) => document.getElementById(id);
 
 let currentRows = [];
@@ -40,8 +42,19 @@ function getBalances() {
   }
 }
 
-function saveBalancesToStorage(data) {
+function saveBalancesData(data) {
   localStorage.setItem(STORAGE_BALANCES, JSON.stringify(data));
+}
+
+function toTHB(row) {
+  const amount = Number(row.amount || 0);
+
+  if (row.currency === "JPY") {
+    const rate = Number(row.rate || DEFAULT_JPY_RATE);
+    return amount * rate;
+  }
+
+  return amount;
 }
 
 function loadBalances() {
@@ -62,7 +75,7 @@ function saveBalances() {
     updatedAt: Date.now()
   };
 
-  saveBalancesToStorage(data);
+  saveBalancesData(data);
 
   $("balanceSaved").textContent =
     "บันทึกยอดตั้งต้นแล้ว: " + new Date().toLocaleString();
@@ -269,7 +282,7 @@ function exportJSON() {
 function sumMethodByDate(method, date) {
   return currentRows
     .filter((r) => r.date === date && r.method === method)
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    .reduce((sum, r) => sum + toTHB(r), 0);
 }
 
 function computeReconcile() {
@@ -277,16 +290,18 @@ function computeReconcile() {
   const date = $("reconcileDate").value || todayISO();
 
   const rows = [
+    ["Cash", 0, sumMethodByDate("Cash", date)],
     ["YouTrip", Number(b.youtrip || 0), sumMethodByDate("YouTrip", date)],
     ["Krungsri JCB", Number(b.krungsriJCB || 0), sumMethodByDate("Krungsri JCB", date)],
-    ["UOB Visa", Number(b.uobVisa || 0), sumMethodByDate("UOB Visa", date)]
+    ["UOB Visa", Number(b.uobVisa || 0), sumMethodByDate("UOB Visa", date)],
+    ["Other", 0, sumMethodByDate("Other", date)]
   ];
 
   $("reconcileTable").innerHTML = `
     <table>
       <thead>
         <tr>
-          <th>บัตร</th>
+          <th>วิธีจ่าย</th>
           <th>ยอดตั้งต้น</th>
           <th>ใช้ไปวันนี้</th>
           <th>ควรคงเหลือ</th>
@@ -341,8 +356,8 @@ function updateCategorySummary() {
   });
 
   currentRows.forEach((r) => {
-    if (r.currency === "THB" && spent[r.category] !== undefined) {
-      spent[r.category] += Number(r.amount || 0);
+    if (spent[r.category] !== undefined) {
+      spent[r.category] += toTHB(r);
     }
   });
 
